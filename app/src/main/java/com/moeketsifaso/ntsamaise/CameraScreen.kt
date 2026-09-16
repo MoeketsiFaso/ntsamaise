@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -46,6 +47,9 @@ fun CameraScreen() {
     var detectedObject by remember {
         mutableStateOf("Looking for objects...")
     }
+
+    var spokenResult by remember { mutableStateOf<String?>(null) }
+    val speechError = rememberSpokenDetection(spokenResult)
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -149,6 +153,7 @@ fun CameraScreen() {
 
                                                 detectedObject =
                                                     "No object detected"
+                                                spokenResult = "No object detected"
 
                                             } else {
 
@@ -166,11 +171,13 @@ fun CameraScreen() {
                                                         "${label.text} ${
                                                             (label.confidence * 100).toInt()
                                                         }%"
+                                                    spokenResult = "${label.text} detected"
 
                                                 } else {
 
                                                     detectedObject =
                                                         "Object detected"
+                                                    spokenResult = "Object detected"
                                                 }
                                             }
                                         }
@@ -178,6 +185,7 @@ fun CameraScreen() {
 
                                             detectedObject =
                                                 "Detection error"
+                                            spokenResult = null
 
                                         }
                                         .addOnCompleteListener {
@@ -232,6 +240,18 @@ fun CameraScreen() {
                     )
                     .padding(12.dp)
             )
+
+            speechError?.let { message ->
+                Text(
+                    text = message,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(24.dp)
+                        .background(Color.Black.copy(alpha = 0.85f))
+                        .padding(12.dp)
+                )
+            }
         }
 
     } else {
