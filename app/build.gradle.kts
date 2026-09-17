@@ -46,7 +46,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
-    implementation("com.google.mlkit:object-detection:17.0.2")
+    implementation("com.google.mediapipe:tasks-vision:1.0.0")
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
