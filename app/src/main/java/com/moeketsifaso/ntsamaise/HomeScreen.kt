@@ -79,7 +79,7 @@ fun HomeScreen(
                 .height(70.dp)
                 .semantics {
                     contentDescription =
-                        "Identify money. Scan a Lesotho banknote."
+                        "Identify money. Read a possible Lesotho banknote value from printed text."
                 }
         ) {
             Text(

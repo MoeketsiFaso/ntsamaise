@@ -10,7 +10,7 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.objectdetector.ObjectDetector
 
 /** Create, use and close on the camera executor. CameraX drops stale frames. */
-internal class SurroundingsDetector(context: Context) : AutoCloseable {
+internal class SurroundingsDetector(context: Context) : CameraFrameProcessor<DetectionFeedback> {
     private val detector = ObjectDetector.createFromOptions(
         context,
         ObjectDetector.ObjectDetectorOptions.builder()
@@ -26,7 +26,7 @@ internal class SurroundingsDetector(context: Context) : AutoCloseable {
             .build()
     )
 
-    fun detect(frame: ImageProxy): DetectionFeedback {
+    override fun process(frame: ImageProxy): DetectionFeedback {
         val bitmap = frame.toBitmap()
         var upright = bitmap
         try {

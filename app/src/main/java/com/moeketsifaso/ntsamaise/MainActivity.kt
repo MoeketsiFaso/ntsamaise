@@ -6,7 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 
 class MainActivity : ComponentActivity() {
@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
 
-            var currentScreen by remember {
+            var currentScreen by rememberSaveable {
                 mutableStateOf("home")
             }
 
@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
                         },
 
                         onIdentifyMoney = {
-                            // Will be implemented later
+                            currentScreen = "currency"
                         },
 
                         onIdentifyProduct = {
@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
                         },
 
                         onReadText = {
-                            // Will be implemented later
+                            currentScreen = "text"
                         }
                     )
                 }
@@ -50,6 +50,16 @@ class MainActivity : ComponentActivity() {
                     }
 
                     CameraScreen()
+                }
+
+                "currency" -> {
+                    BackHandler { currentScreen = "home" }
+                    CurrencyScreen(onBack = { currentScreen = "home" })
+                }
+
+                "text" -> {
+                    BackHandler { currentScreen = "home" }
+                    ReadTextScreen(onBack = { currentScreen = "home" })
                 }
             }
         }
