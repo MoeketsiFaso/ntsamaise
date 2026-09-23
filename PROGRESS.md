@@ -31,6 +31,13 @@ the intended capabilities listed in PROJECT_CONTEXT.md.
 | Shared camera and speech | Object recognition and OCR share camera permissions, lifecycle handling, worker cleanup, translation pipeline, and TTS setup. Backgrounding cancels pending capture results and stops speech. |
 | Currency OCR prototype | Reuses offline OCR, capture controls, Sesotho translation, and speech. Supports possible 10/20/50/100/200-maloti text matches with bank-name and corroborating-denomination checks. Ambiguous or incomplete text returns retry guidance translated into Sesotho. No visual banknote classifier or authenticity check is implemented. |
 
+The detector replacement is committed as `2f4fe2c` (Replace ML Kit detector with
+offline MediaPipe EfficientDet). English speech and project context were added
+in `96a96d5`. Text reading and currency OCR were committed as `fc807e9` (Add offline
+text reading and Lesotho currency OCR prototype). Cloud Google Translate Sesotho
+integration and speech translation were committed in `8da97f8` (Add cloud Google Translate
+API Sesotho translation and speech integration).
+
 ## Work underway and pending validation
 
 Cloud Google Translate Sesotho integration, debug build, and unit-test verification
