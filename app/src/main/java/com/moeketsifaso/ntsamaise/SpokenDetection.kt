@@ -22,7 +22,9 @@ fun rememberSpokenDetection(result: String?): String? {
             while (true) {
                 val now = SystemClock.elapsedRealtime()
                 if (!speech.isSpeaking && gate.canAnnounce(result, now)) {
-                    if (speech.speak(result)) gate.record(result, now) else break
+                    val translation = GoogleCloudTranslator.translate(result)
+                    val textToSpeak = translation.translatedText
+                    if (speech.speak(textToSpeak)) gate.record(result, now) else break
                 }
                 delay(250)
             }

@@ -34,6 +34,17 @@ The prototype should eventually recognize information relevant to users in Lesot
 
 Prefer **offline/on-device processing** where technically feasible.
 
+### Speech and translation requirements updated on 2026-09-23
+
+The user directed implementation of the cloud Google Translate API version for
+translating English text to Sesotho (`st`) before TTS playback. Translation uses
+Google Cloud Translation v2 with in-memory caching to eliminate redundant calls and
+a local offline dictionary fallback for common app guidance and object classes.
+Speech output attempts to use an installed Sesotho voice if available on device,
+falling back to the installed English TTS voice to read the Sesotho text.
+Cloud translation requires internet access and an API key configured via
+`local.properties` (`GOOGLE_TRANSLATE_API_KEY`) or `GoogleCloudTranslator.customApiKey`.
+
 ---
 
 ## 3. Current Android Configuration

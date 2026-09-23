@@ -127,9 +127,26 @@ representative evaluation dataset remain future work.
    and rotation. Old results must not replace a new capture or restart speech.
 5. Repeat in airplane mode with an installed offline English voice, and with TalkBack.
 
-Unit tests cover the parsing rules and rejection cases. The Android integration
-test uses synthetic printed text, not a real banknote dataset, and does not measure
-banknote recognition accuracy.
+## Sesotho translation setup
+
+App-generated detections, currency readings, and captured passages are translated
+into Sesotho before being read aloud.
+
+- **Offline fallback**: Built-in dictionary provides immediate Sesotho translations
+  for standard object detection classes, banknote readings, and system status cues
+  without internet.
+- **Cloud Google Translate**: For arbitrary printed text in Read Text, configure your
+  Google Cloud Translation API key in `local.properties`:
+  ```properties
+  GOOGLE_TRANSLATE_API_KEY=your_api_key_here
+  ```
+  Or set it programmatically via `GoogleCloudTranslator.customApiKey`.
+- **Speech**: The app checks for an installed Sesotho voice (`st-LS`) and falls back
+  to the phone's installed English TTS voice to read the Sesotho text.
+
+Unit tests cover the parsing rules, rejection cases, and translation pipelines.
+The Android integration test uses synthetic printed text, not a real banknote dataset,
+and does not measure banknote recognition accuracy.
 
 Build and unit tests: `./gradlew :app:assembleDebug :app:testDebugUnitTest`.
 The Android OCR smoke test renders a known printed phrase and checks recognition;

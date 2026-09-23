@@ -86,7 +86,11 @@ internal fun rememberSpeechOutput(): SpeechOutput {
                 if (!disposed) {
                     val current = speech.engine
                     if (status == TextToSpeech.SUCCESS && current != null) {
-                        if (current.setLanguage(Locale.ENGLISH) >= TextToSpeech.LANG_AVAILABLE) {
+                        val sesothoLocale = Locale.forLanguageTag("st-LS")
+                        if (current.setLanguage(sesothoLocale) >= TextToSpeech.LANG_AVAILABLE) {
+                            current.language = sesothoLocale
+                            speech.ready = true
+                        } else if (current.setLanguage(Locale.ENGLISH) >= TextToSpeech.LANG_AVAILABLE) {
                             current.voices?.firstOrNull {
                                 it.locale.language == Locale.ENGLISH.language &&
                                     !it.isNetworkConnectionRequired &&
@@ -94,7 +98,7 @@ internal fun rememberSpeechOutput(): SpeechOutput {
                             }?.let { current.voice = it }
                             speech.ready = true
                         } else {
-                            speech.error = "English speech unavailable. Install an English voice in your phone's text-to-speech settings."
+                            speech.error = "Speech unavailable. Install an English or Sesotho voice in your phone's text-to-speech settings."
                         }
                     } else {
                         speech.error = "Speech unavailable. Check your phone's text-to-speech settings."

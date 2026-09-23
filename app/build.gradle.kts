@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -17,6 +20,17 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val localProps = Properties()
+        val localFile = rootProject.file("local.properties")
+        if (localFile.exists()) {
+            FileInputStream(localFile).use { localProps.load(it) }
+        }
+        val apiKey: String = localProps.getProperty("GOOGLE_TRANSLATE_API_KEY")
+            ?: (project.findProperty("GOOGLE_TRANSLATE_API_KEY") as? String)
+            ?: System.getenv("GOOGLE_TRANSLATE_API_KEY")
+            ?: ""
+        buildConfigField("String", "GOOGLE_TRANSLATE_API_KEY", "\"$apiKey\"")
     }
 
     buildTypes {
@@ -32,6 +46,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

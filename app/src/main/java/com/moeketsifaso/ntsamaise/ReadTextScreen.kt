@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -37,13 +38,32 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
     val speech = rememberSpeechOutput()
     var cameraReady by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
+    var isTranslating by remember { mutableStateOf(false) }
     var recognizedText by rememberSaveable { mutableStateOf("") }
+    var translatedText by rememberSaveable { mutableStateOf("") }
     var status by remember {
         mutableStateOf(if (recognizedText.isBlank()) {
             initialGuidance
-        } else if (currencyMode) recognizedText else "Text captured. Tap Read again to read it aloud.")
+        } else if (currencyMode) {
+            translatedText.ifBlank { recognizedText }
+        } else "Text captured. Tap Read again to read it aloud.")
     }
     var pendingSpeech by remember { mutableStateOf<String?>(null) }
+
+    // Translate recognized text or currency message to Sesotho
+    LaunchedEffect(recognizedText, isTranslating) {
+        if (isTranslating && recognizedText.isNotBlank()) {
+            val translation = GoogleCloudTranslator.translate(recognizedText)
+            translatedText = translation.translatedText
+            isTranslating = false
+            status = if (currencyMode) {
+                translatedText
+            } else {
+                "Text captured and translated. Tap Read again to repeat."
+            }
+            pendingSpeech = translatedText
+        }
+    }
 
     // Consume each passage once, including when TTS initializes after OCR finishes.
     LaunchedEffect(pendingSpeech, speech.ready, speech.resumed) {
@@ -65,8 +85,11 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
         OutlinedButton(onClick = onBack, modifier = Modifier.heightIn(min = 56.dp)) {
             Text("Back to home")
         }
-        Text(if (currencyMode) "Identify Money" else "Read Text", style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.semantics { heading() })
+        Text(
+            if (currencyMode) "Identify Money" else "Read Text",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }
+        )
         if (currencyMode) {
             Text("Text-based prototype for 10, 20, 50, 100 and 200 maloti notes. Coins and other currencies are not supported. It cannot check whether a note is genuine.")
         }
@@ -80,6 +103,7 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                 if (!ready) {
                     requests.cancel()
                     pendingSpeech = null
+                    isTranslating = false
                     if (scanning) status = "Capture cancelled. Tap $captureLabel to try again."
                     scanning = false
                 }
@@ -87,24 +111,38 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
             onResult = { result ->
                 if (requests.complete(result.requestId)) {
                     scanning = false
-                    recognizedText = when {
+                    val extractedText = when {
                         result.error != null -> ""
                         currencyMode -> LotiCurrencyReader.read(result.text).message
                         else -> result.text
                     }
-                    status = result.error ?: if (currencyMode) {
-                        recognizedText
-                    } else if (result.text.isBlank()) {
-                        "No text found. Improve the lighting, move closer and try again."
+                    recognizedText = extractedText
+                    if (result.error != null) {
+                        translatedText = ""
+                        isTranslating = false
+                        status = result.error
+                        pendingSpeech = result.error
+                    } else if (extractedText.isBlank()) {
+                        val emptyMsg = if (currencyMode) {
+                            "No text found. Hold one note flat in good light and scan again."
+                        } else {
+                            "No text found. Improve the lighting, move closer and try again."
+                        }
+                        translatedText = ""
+                        isTranslating = false
+                        status = emptyMsg
+                        pendingSpeech = emptyMsg
                     } else {
-                        "Text captured. Tap Read again to repeat, or capture another passage."
+                        translatedText = ""
+                        isTranslating = true
+                        status = if (currencyMode) "Translating currency result to Sesotho..." else "Translating to Sesotho..."
                     }
-                    pendingSpeech = recognizedText.ifBlank { status }
                 }
             },
             onError = { message ->
                 requests.cancel()
                 scanning = false
+                isTranslating = false
                 status = message
                 pendingSpeech = message
             }
@@ -116,16 +154,18 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                     speech.stop()
                     pendingSpeech = null
                     recognizedText = ""
+                    translatedText = ""
+                    isTranslating = false
                     scanning = true
                     status = "Recognizing text. Hold the camera steady."
                 }
             },
-            enabled = cameraReady && !scanning,
+            enabled = cameraReady && !scanning && !isTranslating,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
         ) { Text(if (scanning) "Recognizing text…" else captureLabel) }
         OutlinedButton(
-            onClick = { pendingSpeech = recognizedText },
-            enabled = recognizedText.isNotBlank() && speech.ready && !scanning,
+            onClick = { pendingSpeech = translatedText.ifBlank { recognizedText } },
+            enabled = (translatedText.isNotBlank() || recognizedText.isNotBlank()) && speech.ready && !scanning && !isTranslating,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
         ) { Text(if (currencyMode) "Repeat result" else "Read again") }
         OutlinedButton(
@@ -133,19 +173,37 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                 pendingSpeech = null
                 speech.stop()
                 requests.cancel()
+                isTranslating = false
                 if (scanning) status = "Capture cancelled. Tap $captureLabel to try again."
                 scanning = false
             },
-            enabled = speech.isSpeaking || pendingSpeech != null || scanning,
+            enabled = speech.isSpeaking || pendingSpeech != null || scanning || isTranslating,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-        ) { Text(if (scanning) "Cancel capture" else "Stop reading") }
+        ) { Text(if (scanning || isTranslating) "Cancel capture" else "Stop reading") }
         speech.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (!currencyMode && recognizedText.isNotBlank()) {
-            Text("Recognized text", style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.semantics { heading() })
-            SelectionContainer { Text(recognizedText, fontSize = 20.sp) }
+        if (translatedText.isNotBlank()) {
+            Text(
+                if (currencyMode) "Sephetho (Sesotho)" else "Sesotho Translation",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.semantics { heading() }
+            )
+            SelectionContainer {
+                Text(translatedText, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+            }
         }
-        Text(if (currencyMode) "Results are suggestions from printed text. Reading aloud uses an English voice."
-            else "Printed Latin-script text. Reading aloud currently uses an English voice.")
+        if (!currencyMode && recognizedText.isNotBlank()) {
+            Text(
+                "Original text",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() }
+            )
+            SelectionContainer {
+                Text(recognizedText, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Text(
+            if (currencyMode) "Results are suggestions from printed text. Spoken in Sesotho."
+            else "Printed text translated to Sesotho and spoken using Google Translate."
+        )
     }
 }
