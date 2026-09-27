@@ -45,6 +45,74 @@ Confidence percentages remain on screen only.
    Confirm specific labels and check responsiveness on the intended phone.
 8. Leave and reopen the scanner repeatedly; confirm preview and detection recover.
 
+## Detect Obstacles (experimental)
+
+Open **Detect Obstacles** for continuous left/ahead/right alerts using the bundled
+object model. Hold the phone upright and facing forward; directions describe the
+camera view. **Pause detection** stops the camera and speech; **Resume detection**
+starts a fresh session. Back and backgrounding also stop speech.
+
+The heuristic considers up to 20 detections at 50% confidence or above. It clips
+boxes to the upright image, excludes boxes occupying less than 4% of image area,
+prioritizes boxes intersecting the middle third, then chooses the largest box.
+Image size alone is **not a distance measurement**. Optional reference calibration
+provides approximate distances for the same object (see below). No depth model, navigation planning,
+collision prediction, or dedicated hazard model is implemented. Unsupported hazards
+including steps, potholes and walls may be missed; keep using your usual mobility
+aid. No detections never produces a spoken “path clear” assurance.
+
+Direction alerts use local Sesotho translations without a cloud request (pronunciation
+and offline playback depend on installed TTS voices). Alerts need 400 ms of stable
+direction; changed directions are spaced at least 1.5 seconds apart and unchanged
+directions repeat after 5 seconds, when speech is idle. Changing an object's label
+alone does not restart the stability timer. Camera results older than 2.5 seconds
+are silenced on the next 500 ms freshness check.
+
+Device validation is still pending for this feature:
+
+1. While stationary with a sighted helper, place a chair/person left, ahead and right;
+   confirm displayed direction and spoken Sesotho. Repeat in landscape.
+2. Show several objects; check center priority and false positives from distant objects.
+3. Check pause/resume, Back, background/foreground, permission denial and camera failure.
+4. Check repeat timing and airplane mode with an installed offline TTS voice.
+5. Check TalkBack and large text; record device, Android version, latency, misses and
+   false alerts. The thresholds and Sesotho wording need local user evaluation.
+
+### Calibrated approximate distance
+
+In Detect Obstacles, show one stationary, fully visible object and have a helper
+measure the distance from the camera to it. Enter that distance (0.3–10 metres),
+hold steady until **Ready to calibrate** identifies the intended object, then tap
+**Calibrate distance**. Change the camera-to-object distance while keeping the same
+object and viewing angle. The display reports **Estimated distance** in metres;
+Sesotho announcements include an estimate rounded to half-metre steps. Use
+**Clear calibration** before switching objects, even to another of the same class.
+
+The calculation is `reference metres × reference box height / current box height`,
+using fractions of the upright camera image. It assumes the same physical object,
+pose and camera field of view; no class-average sizes or sensor depth are used.
+Different-sized objects, changes in pose, occlusion, lens changes and inaccurate
+boxes can invalidate this estimate. The app cannot distinguish two objects of the
+same class. Do not treat these readings as precise measurements or navigation clearance.
+
+Calibration and readings require at least three samples spanning 600 ms within a
+1.5-second window, with height spread at most 10%, confidence at least 65%, and bounds
+at least 2% inside the image edges. Clipped, unstable or out-of-range observations
+show distance unavailable. Supported estimates are 0.3–10 m; values outside this
+range are rejected, not clamped. Distances retain the existing obstacle selection
+policy and minimum 4% box-area filter, so distant/small objects may not qualify.
+
+Calibration stays in memory for the current detection session. Pause, backgrounding,
+camera errors, stale frames, changed image geometry or a selected class change clear
+it. Recalibrate after these events. A dropped detection temporarily removes the
+reading; returning to another object of the same class still requires manual recalibration.
+
+For device validation, calibrate a fixed object at a tape-measured 1 m, compare
+readings at 0.5, 1, 1.5 and 2 m where the entire object fits the view, and record
+absolute error. Repeat with another object, lighting conditions and orientations.
+Check that partial objects, camera rotation, pause/resume and class changes remove
+the estimate or calibration as described. Accuracy has not yet been measured on-device.
+
 ## Read Text
 
 Open **Read Text**, allow camera access, point at printed text, then tap

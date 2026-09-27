@@ -64,6 +64,10 @@ object GoogleCloudTranslator {
 
     /** Pre-translated app guidance and common object names for immediate, offline response. */
     private val localDictionary = mapOf(
+        // Obstacle alerts must not wait for a network translation.
+        "Possible obstacle on the left" to "Ho ka ba le tšitiso ka ho le letšehali",
+        "Possible obstacle ahead" to "Ho ka ba le tšitiso ka pele",
+        "Possible obstacle on the right" to "Ho ka ba le tšitiso ka ho le letona",
         // Object detection & status
         "Looking for objects..." to "E batla lintho...",
         "No object recognized" to "Ha ho ntho e lemohuoeng",
@@ -184,6 +188,13 @@ object GoogleCloudTranslator {
 
     private fun matchLocalDictionary(text: String): String? {
         localDictionary[text]?.let { return it }
+
+        val distanceMatch = Regex("(Possible obstacle (?:on the left|ahead|on the right))\\. Estimated distance ([0-9]+\\.[0-9]) meters")
+            .matchEntire(text)
+        if (distanceMatch != null) {
+            val direction = localDictionary[distanceMatch.groupValues[1]] ?: return null
+            return "$direction. Sebaka se hakanyetsoang ke limithara tse ${distanceMatch.groupValues[2]}"
+        }
 
         // Dynamic currency denomination match
         val currencyMatch = Regex("Possible (\\d+) maloti, based on printed text\\. Check the note before using this result\\.").matchEntire(text)

@@ -39,6 +39,9 @@ class MainActivity : ComponentActivity() {
 
                         onReadText = {
                             currentScreen = "text"
+                        },
+                        onDetectObstacles = {
+                            currentScreen = "obstacles"
                         }
                     )
                 }
@@ -50,6 +53,11 @@ class MainActivity : ComponentActivity() {
                     }
 
                     CameraScreen()
+                }
+
+                "obstacles" -> {
+                    BackHandler { currentScreen = "home" }
+                    ObstacleScreen(onBack = { currentScreen = "home" })
                 }
 
                 "currency" -> {

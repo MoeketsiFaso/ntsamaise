@@ -10,7 +10,9 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.objectdetector.ObjectDetector
 
 /** Create, use and close on the camera executor. CameraX drops stale frames. */
-internal class SurroundingsDetector(context: Context) : CameraFrameProcessor<DetectionFeedback> {
+internal class SurroundingsDetector(
+    context: Context, private val obstacles: Boolean = false
+) : CameraFrameProcessor<DetectionFeedback> {
     private val detector = ObjectDetector.createFromOptions(
         context,
         ObjectDetector.ObjectDetectorOptions.builder()
@@ -22,7 +24,7 @@ internal class SurroundingsDetector(context: Context) : CameraFrameProcessor<Det
             // Synchronous inference on our worker keeps image ownership explicit.
             .setRunningMode(RunningMode.IMAGE)
             .setScoreThreshold(0.5f)
-            .setMaxResults(5)
+            .setMaxResults(if (obstacles) 20 else 5)
             .build()
     )
 
@@ -39,7 +41,18 @@ internal class SurroundingsDetector(context: Context) : CameraFrameProcessor<Det
             }
             val image = BitmapImageBuilder(upright).build()
             try {
-                val category = detector.detect(image).detections()
+                val detections = detector.detect(image).detections()
+                if (obstacles) {
+                    return obstacleFeedback(detections.mapNotNull { detection ->
+                        val best = detection.categories().filter { it.categoryName().isNotBlank() }
+                            .maxByOrNull { it.score() } ?: return@mapNotNull null
+                        val box = detection.boundingBox()
+                        DetectedObject(best.categoryName(), best.score(),
+                            box.left / upright.width, box.top / upright.height,
+                            box.right / upright.width, box.bottom / upright.height)
+                    }, FrameGeometry(upright.width, upright.height, frame.imageInfo.rotationDegrees))
+                }
+                val category = detections
                     .flatMap { it.categories() }
                     .filter { it.categoryName().isNotBlank() }
                     .maxByOrNull { it.score() }
@@ -64,4 +77,6 @@ internal class SurroundingsDetector(context: Context) : CameraFrameProcessor<Det
     override fun close() = detector.close()
 }
 
-internal data class DetectionFeedback(val display: String, val speech: String)
+internal data class DetectionFeedback(
+    val display: String, val speech: String, val obstacle: ObstacleObservation? = null
+)

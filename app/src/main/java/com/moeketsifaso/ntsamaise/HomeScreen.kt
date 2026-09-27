@@ -6,7 +6,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,12 +29,15 @@ fun HomeScreen(
     onScanSurroundings: () -> Unit,
     onIdentifyMoney: () -> Unit,
     onIdentifyProduct: () -> Unit,
-    onReadText: () -> Unit
+    onReadText: () -> Unit,
+    onDetectObstacles: () -> Unit
 ) {
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -68,6 +75,17 @@ fun HomeScreen(
                 text = "Scan Surroundings",
                 fontSize = 20.sp
             )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = onDetectObstacles,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 70.dp).semantics {
+                contentDescription = "Detect obstacles. Experimental camera alerts for possible obstacles on the left, ahead or right."
+            }
+        ) {
+            Text("Detect Obstacles", fontSize = 20.sp)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
