@@ -3,6 +3,23 @@
 Android assistive research prototype for blind and partially sighted users in Lesotho.
 See [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for the intended research scope.
 
+## Language selection
+
+On first launch, choose **English** or **Sesotho**. The app saves the selection
+across restarts; use **Change language / Fetola puo** on the home screen to switch.
+Controls, guidance, errors and recognition speech follow the selection. English
+app results and OCR passages bypass translation; Sesotho uses local/cloud
+translation. Original OCR text remains available for reference.
+Interface translations work offline. Arbitrary passages and unmapped object names
+need a configured translation key and internet. If unavailable, the original text
+is shown with a fallback notice. An installed Sesotho TTS voice is preferred in
+Sesotho mode; the existing English-voice fallback cannot guarantee natural pronunciation.
+
+Device checks required: first launch, restart and rotation persistence; switch in
+both directions; all four camera workflows; camera permission and error messages;
+empty OCR; offline operation; TalkBack, large text and voice availability.
+Sesotho wording needs fluent-speaker review.
+
 ## Spoken object detection
 
 The scanner uses MediaPipe Tasks Vision 1.0.0 with a bundled EfficientDet-Lite0
@@ -23,8 +40,10 @@ Source: [Google model storage, version 1](https://storage.googleapis.com/mediapi
 SHA-256: `0720bf247bd76e6594ea28fa9c6f7c5242be774818997dbbeffc4da460c723bb`.
 
 Open **Scan Surroundings** and allow camera access. Stable detection results are
-read aloud in English using the phone's text-to-speech engine. An installed offline
-English voice is preferred; availability depends on the phone's speech engine.
+read in the selected language using the phone's text-to-speech engine. In Sesotho mode the app
+prefers an installed Sesotho voice, then an English voice. Known object/colour
+phrases translate offline; other labels use cloud translation when configured,
+falling back to the original English text if unavailable.
 Confidence percentages remain on screen only.
 
 - Results must remain unchanged for 0.8 seconds before speech is considered.
@@ -44,6 +63,59 @@ Confidence percentages remain on screen only.
 7. Test a person, chair, bottle, and cup in portrait and landscape orientations.
    Confirm specific labels and check responsiveness on the intended phone.
 8. Leave and reopen the scanner repeatedly; confirm preview and detection recover.
+
+### Object colour recognition
+
+Scan Surroundings automatically estimates the dominant colour of the selected
+object, displaying, for example, **chair 90% · Possible colour: red · low colour confidence**
+and speaking the translated equivalent of **chair detected. Possible colour: red**. No extra button or model
+download is required. Supported colour names are black, white, grey, red, orange,
+yellow, green, blue, purple, pink and brown. The percentage is the object detector's
+confidence, not colour accuracy. Colour confidence uses low/moderate heuristic
+agreement bands, not measured probabilities; every colour is presented as a guess.
+
+On the camera worker, a coarse HSV classifier samples at most 576 pixels from the
+central 60% of the selected object's visible upright bounding box. The leading
+colour is returned even for mixed samples. Below 65% agreement or a
+25-percentage-point lead, partially clipped boxes and fewer than 36 sample pixels
+produce low confidence. Fully off-image, invalid, smaller-than-4-pixel regions and
+samples without enough opaque pixels still return **Colour unclear**.
+
+Guesses appear immediately and are smoothed by majority vote over up to five frames
+from the last 1.2 seconds; tied votes keep the previous guess. Fewer than three
+frames, differing frame colours or any weak sample keep confidence low. The
+existing speech stability/rate limits still apply; confidence changes alone do
+not restart announcements. Class, box-overlap and geometry changes, missing
+detections, frame gaps and camera session restarts clear smoothing history.
+Stale camera results are silenced after 2.5 seconds on a 500 ms check.
+
+Colour analysis runs entirely on-device; images are neither saved nor uploaded.
+Unknown object names may send the result phrase through the existing cloud
+translation service. Known dictionary objects compose offline Sesotho colour
+feedback, including uncertainty; wording and pronunciation need local validation.
+
+This is a prototype estimate of the sampled region, not segmentation, physical
+object tracking or calibrated colour measurement. Background visible through a
+chair, transparent objects, patterns, shadows, glare and camera white balance can
+change the result. A dark scene can look black; a multicoloured object may receive
+the colour dominant in its sampled centre. Real-device accuracy is unmeasured.
+
+Phone verification (pending):
+
+1. Scan solid-colour cups, bottles, books and chairs under neutral lighting; record
+   correct, incorrect and unclear results for every supported colour.
+2. Show two differently coloured objects. Confirm the reported colour belongs to
+   the selected label, including two objects of the same class.
+3. Test patterned/transparent objects, box edges, busy backgrounds, shadows, glare,
+   dim light, movement, distance and portrait/landscape rotation.
+4. Confirm guesses appear promptly, mixed samples show low confidence, brief
+   fluctuations settle and the guess changes when the object changes. Speech must
+   say the translated equivalent of "possible colour", omit percentages and avoid
+   repeating on every frame. Recheck after a gap or camera session restart.
+5. Test airplane mode with a dictionary object such as a chair; verify colour and
+   uncertainty wording with a Sesotho speaker and the installed TTS engine.
+6. Test Back, background/resume, permissions, TalkBack and enlarged text; no old
+   colour should survive a stopped camera session. Recheck the other scanner modes.
 
 ## Detect Obstacles (experimental)
 
@@ -125,11 +197,11 @@ capture; cancelled results cannot replace a later capture.
 The app bundles ML Kit's Latin-script text recognition model
 (`com.google.mlkit:text-recognition:16.0.1`) for on-device OCR without a first-run
 model download. See [the Android OCR guide](https://developers.google.com/ml-kit/vision/text-recognition/v2/android).
-Reading aloud uses the shared English TTS engine and prefers an installed offline
-voice. Long passages are split into ordered chunks within the engine's input
+Reading aloud uses the shared TTS engine in the selected language. English mode
+prefers an installed offline English voice. Long passages are split into ordered chunks within the engine's input
 limit. Camera frames are not saved as image files. Recognized text is kept in
 screen state, including restoration across rotation; there is no reading-history
-feature. OCR does not translate text, and Sesotho speech is not implemented.
+feature. Sesotho mode translates captured text before speech when translation is available.
 
 Both scanning modes share camera permission handling, lifecycle binding and
 worker cleanup. Backgrounding or leaving Read Text cancels pending captures and
@@ -178,7 +250,7 @@ denominations from serial numbers, or assign a confidence percentage.
 Results always say **Possible … maloti**. OCR can misread a note and can also match
 text on a leaflet, receipt or screen; this feature does not establish that the
 camera is viewing a banknote or that a note is genuine. It does not count notes,
-sum money, recognize coins, translate speech into Sesotho or identify other
+sum money, recognize coins or identify other
 currencies. A side without readable issuer text may fail; try the other side.
 Real-banknote accuracy has not been measured. A trained visual model and a
 representative evaluation dataset remain future work.
@@ -197,8 +269,8 @@ representative evaluation dataset remain future work.
 
 ## Sesotho translation setup
 
-App-generated detections, currency readings, and captured passages are translated
-into Sesotho before being read aloud.
+When Sesotho is selected, detections, currency readings and captured passages are
+translated into Sesotho before speech. English mode skips this pipeline.
 
 - **Offline fallback**: Built-in dictionary provides immediate Sesotho translations
   for standard object detection classes, banknote readings, and system status cues

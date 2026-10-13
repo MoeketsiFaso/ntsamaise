@@ -30,6 +30,8 @@ fun CurrencyScreen(onBack: () -> Unit) = CapturedTextScreen(onBack, currencyMode
 /** Shared capture, cancellation and speech controls for passages and banknote text. */
 @Composable
 private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
+    val language = LocalAppLanguage.current
+    var translationUnavailable by rememberSaveable { mutableStateOf(false) }
     val captureLabel = if (currencyMode) "Scan banknote" else "Capture and read"
     val initialGuidance = if (currencyMode) {
         "Place one Lesotho note flat. Show the whole side with the bank name, then tap Scan banknote."
@@ -50,16 +52,17 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
     }
     var pendingSpeech by remember { mutableStateOf<String?>(null) }
 
-    // Translate recognized text or currency message to Sesotho
-    LaunchedEffect(recognizedText, isTranslating) {
+    // Resolve captured content in the selected output language.
+    LaunchedEffect(language, recognizedText, isTranslating) {
         if (isTranslating && recognizedText.isNotBlank()) {
-            val translation = GoogleCloudTranslator.translate(recognizedText)
+            val translation = language.output(recognizedText)
+            translationUnavailable = translation.source == TranslationSource.FALLBACK
             translatedText = translation.translatedText
             isTranslating = false
             status = if (currencyMode) {
                 translatedText
             } else {
-                "Text captured and translated. Tap Read again to repeat."
+                "Text captured. Tap Read again to read it aloud."
             }
             pendingSpeech = translatedText
         }
@@ -83,15 +86,15 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         OutlinedButton(onClick = onBack, modifier = Modifier.heightIn(min = 56.dp)) {
-            Text("Back to home")
+            UiText("Back to home")
         }
-        Text(
+        UiText(
             if (currencyMode) "Identify Money" else "Read Text",
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.semantics { heading() }
         )
         if (currencyMode) {
-            Text("Text-based prototype for 10, 20, 50, 100 and 200 maloti notes. Coins and other currencies are not supported. It cannot check whether a note is genuine.")
+            UiText("Text-based prototype for 10, 20, 50, 100 and 200 maloti notes. Coins and other currencies are not supported. It cannot check whether a note is genuine.")
         }
         CameraPreview(
             createProcessor = { PrintedTextRecognizer(requests) },
@@ -104,7 +107,7 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                     requests.cancel()
                     pendingSpeech = null
                     isTranslating = false
-                    if (scanning) status = "Capture cancelled. Tap $captureLabel to try again."
+                    if (scanning) status = "Capture cancelled. Try again when ready."
                     scanning = false
                 }
             },
@@ -121,7 +124,7 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                         translatedText = ""
                         isTranslating = false
                         status = result.error
-                        pendingSpeech = result.error
+                        pendingSpeech = language.ui(result.error)
                     } else if (extractedText.isBlank()) {
                         val emptyMsg = if (currencyMode) {
                             "No text found. Hold one note flat in good light and scan again."
@@ -131,11 +134,11 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                         translatedText = ""
                         isTranslating = false
                         status = emptyMsg
-                        pendingSpeech = emptyMsg
+                        pendingSpeech = language.ui(emptyMsg)
                     } else {
                         translatedText = ""
                         isTranslating = true
-                        status = if (currencyMode) "Translating currency result to Sesotho..." else "Translating to Sesotho..."
+                        status = if (language == AppLanguage.ENGLISH) "Recognizing text..." else "Translating to Sesotho..."
                     }
                 }
             },
@@ -144,10 +147,10 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                 scanning = false
                 isTranslating = false
                 status = message
-                pendingSpeech = message
+                pendingSpeech = language.ui(message)
             }
         )
-        Text(status, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+        UiText(status, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         Button(
             onClick = {
                 if (requests.request() != null) {
@@ -155,6 +158,7 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                     pendingSpeech = null
                     recognizedText = ""
                     translatedText = ""
+                    translationUnavailable = false
                     isTranslating = false
                     scanning = true
                     status = "Recognizing text. Hold the camera steady."
@@ -162,28 +166,29 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
             },
             enabled = cameraReady && !scanning && !isTranslating,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-        ) { Text(if (scanning) "Recognizing text…" else captureLabel) }
+        ) { UiText(if (scanning) "Recognizing text…" else captureLabel) }
         OutlinedButton(
             onClick = { pendingSpeech = translatedText.ifBlank { recognizedText } },
             enabled = (translatedText.isNotBlank() || recognizedText.isNotBlank()) && speech.ready && !scanning && !isTranslating,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-        ) { Text(if (currencyMode) "Repeat result" else "Read again") }
+        ) { UiText(if (currencyMode) "Repeat result" else "Read again") }
         OutlinedButton(
             onClick = {
                 pendingSpeech = null
                 speech.stop()
                 requests.cancel()
                 isTranslating = false
-                if (scanning) status = "Capture cancelled. Tap $captureLabel to try again."
+                if (scanning) status = "Capture cancelled. Try again when ready."
                 scanning = false
             },
             enabled = speech.isSpeaking || pendingSpeech != null || scanning || isTranslating,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-        ) { Text(if (scanning || isTranslating) "Cancel capture" else "Stop reading") }
-        speech.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        ) { UiText(if (scanning || isTranslating) "Cancel capture" else "Stop reading") }
+        speech.error?.let { UiText(it, color = MaterialTheme.colorScheme.error) }
+        if (translationUnavailable) UiText("Sesotho translation unavailable. Showing original text.")
         if (translatedText.isNotBlank()) {
-            Text(
-                if (currencyMode) "Sephetho (Sesotho)" else "Sesotho Translation",
+            UiText(
+                if (currencyMode) "Result" else "Recognized text",
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.semantics { heading() }
             )
@@ -191,8 +196,8 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                 Text(translatedText, fontSize = 20.sp, fontWeight = FontWeight.Medium)
             }
         }
-        if (!currencyMode && recognizedText.isNotBlank()) {
-            Text(
+        if (!currencyMode && recognizedText.isNotBlank() && translatedText != recognizedText) {
+            UiText(
                 "Original text",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() }
@@ -201,9 +206,9 @@ private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {
                 Text(recognizedText, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Text(
-            if (currencyMode) "Results are suggestions from printed text. Spoken in Sesotho."
-            else "Printed text translated to Sesotho and spoken using Google Translate."
+        UiText(
+            if (currencyMode) "Results are suggestions from printed text."
+            else "Printed text is read in your selected language when translation is available."
         )
     }
 }

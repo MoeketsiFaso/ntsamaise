@@ -13,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,12 +25,14 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun HomeScreen(
+    onChangeLanguage: () -> Unit,
     onScanSurroundings: () -> Unit,
     onIdentifyMoney: () -> Unit,
     onIdentifyProduct: () -> Unit,
     onReadText: () -> Unit,
     onDetectObstacles: () -> Unit
 ) {
+    val language = LocalAppLanguage.current
 
     Column(
         modifier = Modifier
@@ -43,7 +44,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.Center
     ) {
 
-        Text(
+        UiText(
             text = "NTSAMAISE",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
@@ -52,26 +53,29 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            text = "Mothusi oa hau ea hloa-hloa",
+        UiText(
+            text = "Your visual assistant",
             fontSize = 18.sp,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Button(onClick = onChangeLanguage, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+            UiText("Change language")
+        }
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = onScanSurroundings,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(70.dp)
+                .heightIn(min = 70.dp)
                 .semantics {
                     contentDescription =
-                        "Scan surroundings. Opens the camera to identify objects around you."
+                        language.ui("Scan Surroundings")
                 }
         ) {
-            Text(
+            UiText(
                 text = "Scan Surroundings",
                 fontSize = 20.sp
             )
@@ -82,10 +86,10 @@ fun HomeScreen(
         Button(
             onClick = onDetectObstacles,
             modifier = Modifier.fillMaxWidth().heightIn(min = 70.dp).semantics {
-                contentDescription = "Detect obstacles. Experimental camera alerts for possible obstacles on the left, ahead or right."
+                contentDescription = language.ui("Detect Obstacles")
             }
         ) {
-            Text("Detect Obstacles", fontSize = 20.sp)
+            UiText("Detect Obstacles", fontSize = 20.sp)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -94,13 +98,13 @@ fun HomeScreen(
             onClick = onIdentifyMoney,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(70.dp)
+                .heightIn(min = 70.dp)
                 .semantics {
                     contentDescription =
-                        "Identify money. Read a possible Lesotho banknote value from printed text."
+                        language.ui("Identify Money")
                 }
         ) {
-            Text(
+            UiText(
                 text = "Identify Money",
                 fontSize = 20.sp
             )
@@ -112,13 +116,13 @@ fun HomeScreen(
             onClick = onIdentifyProduct,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(70.dp)
+                .heightIn(min = 70.dp)
                 .semantics {
                     contentDescription =
-                        "Identify product. Scan a local product or logo."
+                        language.ui("Identify Product")
                 }
         ) {
-            Text(
+            UiText(
                 text = "Identify Product",
                 fontSize = 20.sp
             )
@@ -130,13 +134,13 @@ fun HomeScreen(
             onClick = onReadText,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(70.dp)
+                .heightIn(min = 70.dp)
                 .semantics {
                     contentDescription =
-                        "Read text. Use the camera to read printed text aloud."
+                        language.ui("Read Text")
                 }
         ) {
-            Text(
+            UiText(
                 text = "Read Text",
                 fontSize = 20.sp
             )

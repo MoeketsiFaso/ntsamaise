@@ -3,6 +3,7 @@ package com.moeketsifaso.ntsamaise
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
+import android.os.SystemClock
 import androidx.camera.core.ImageProxy
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
@@ -13,6 +14,7 @@ import com.google.mediapipe.tasks.vision.objectdetector.ObjectDetector
 internal class SurroundingsDetector(
     context: Context, private val obstacles: Boolean = false
 ) : CameraFrameProcessor<DetectionFeedback> {
+    private val colourWindow = ColourObservationWindow()
     private val detector = ObjectDetector.createFromOptions(
         context,
         ObjectDetector.ObjectDetectorOptions.builder()
@@ -52,22 +54,31 @@ internal class SurroundingsDetector(
                             box.right / upright.width, box.bottom / upright.height)
                     }, FrameGeometry(upright.width, upright.height, frame.imageInfo.rotationDegrees))
                 }
-                val category = detections
-                    .flatMap { it.categories() }
-                    .filter { it.categoryName().isNotBlank() }
-                    .maxByOrNull { it.score() }
-                return if (category == null) {
+                // Keep each category paired with its own box when selecting the best object.
+                val selected = detections.mapNotNull { detection ->
+                    val category = detection.categories().filter { it.categoryName().isNotBlank() }
+                        .maxByOrNull { it.score() } ?: return@mapNotNull null
+                    val box = detection.boundingBox()
+                    DetectedObject(category.categoryName(), category.score(),
+                        box.left / upright.width, box.top / upright.height,
+                        box.right / upright.width, box.bottom / upright.height)
+                }.maxByOrNull { it.confidence }
+                return if (selected == null) {
+                    colourWindow.clear()
                     DetectionFeedback("No object recognized", "No object recognized")
                 } else {
-                    val name = category.categoryName()
-                    DetectionFeedback(
-                        "$name ${(category.score() * 100).toInt()}%",
-                        "$name detected"
-                    )
+                    val candidate = estimateObjectColour(upright.width, upright.height, selected, upright::getPixel)
+                    val colour = colourWindow.add(selected,
+                        FrameGeometry(upright.width, upright.height, frame.imageInfo.rotationDegrees),
+                        candidate, SystemClock.elapsedRealtime())
+                    colouredObjectFeedback(selected, colour)
                 }
             } finally {
                 image.close()
             }
+        } catch (error: Exception) {
+            colourWindow.clear()
+            throw error
         } finally {
             if (upright !== bitmap) upright.recycle()
             bitmap.recycle()

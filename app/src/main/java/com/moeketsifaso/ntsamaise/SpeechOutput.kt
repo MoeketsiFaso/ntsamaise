@@ -73,11 +73,12 @@ internal class SpeechOutput {
 
 @Composable
 internal fun rememberSpeechOutput(): SpeechOutput {
+    val language = LocalAppLanguage.current
     val context = LocalContext.current.applicationContext
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val speech = remember { SpeechOutput() }
+    val speech = remember(language) { SpeechOutput() }
 
-    DisposableEffect(context) {
+    DisposableEffect(context, language) {
         var disposed = false
         val handler = Handler(Looper.getMainLooper())
         val tts = TextToSpeech(context) { status ->
@@ -87,7 +88,7 @@ internal fun rememberSpeechOutput(): SpeechOutput {
                     val current = speech.engine
                     if (status == TextToSpeech.SUCCESS && current != null) {
                         val sesothoLocale = Locale.forLanguageTag("st-LS")
-                        if (current.setLanguage(sesothoLocale) >= TextToSpeech.LANG_AVAILABLE) {
+                        if (language == AppLanguage.SESOTHO && current.setLanguage(sesothoLocale) >= TextToSpeech.LANG_AVAILABLE) {
                             current.language = sesothoLocale
                             speech.ready = true
                         } else if (current.setLanguage(Locale.ENGLISH) >= TextToSpeech.LANG_AVAILABLE) {
@@ -132,7 +133,7 @@ internal fun rememberSpeechOutput(): SpeechOutput {
         }
     }
 
-    DisposableEffect(lifecycle) {
+    DisposableEffect(lifecycle, speech) {
         speech.resumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
         val observer = LifecycleEventObserver { _, _ ->
             speech.resumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)

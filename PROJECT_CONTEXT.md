@@ -27,12 +27,34 @@ Develop an accessible Android application capable of providing:
 4. Printed-text recognition using OCR
 5. Text-to-Speech (TTS) feedback
 6. Selected Sesotho voice interaction/audio feedback
+7. Dominant colour recognition for the object selected by Scan Surroundings
+
+### Colour recognition scope added on 2026-09-30
+
+The user requested implementation of detected-object colour recognition, including
+displayed and spoken object/colour results. The initial approach uses on-device
+image-region analysis without training another model, with stable readings and
+uncertain-colour handling. Lighting and bounding-box background can affect accuracy.
+
+On 2026-09-30 the user reported that colour recognition works but is not effective
+enough, and accepted approximate guesses with low precision/confidence. Prefer
+returning a plausible sampled colour with explicit uncertainty over suppressing
+mixed or weak readings. Keep colour confidence distinct from object confidence.
 
 Local context is an important requirement.
 
 The prototype should eventually recognize information relevant to users in Lesotho rather than relying entirely on generic international datasets.
 
 Prefer **offline/on-device processing** where technically feasible.
+
+### Language choice updated on 2026-10-04
+
+The user requested an English/Sesotho selection screen to accommodate people who
+are not Basotho or do not understand Sesotho. The selected language controls app
+content and voice output. Save the choice and allow changing it from the home
+screen. This supersedes the earlier requirement to always translate into Sesotho.
+English app results use English speech; Sesotho retains local/cloud translation
+and the installed Sesotho voice with English-voice fallback.
 
 ### Speech and translation requirements updated on 2026-09-23
 

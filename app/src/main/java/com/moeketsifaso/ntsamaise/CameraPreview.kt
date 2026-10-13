@@ -16,7 +16,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -171,9 +170,9 @@ internal fun <T> CameraPreview(
         AndroidView(factory = { previewView }, modifier = modifier)
     } else {
         Column(modifier) {
-            Text("Camera permission is required. If denied permanently, enable it in the app's settings.")
+            UiText("Camera permission is required. If denied permanently, enable it in the app's settings.")
             Button(onClick = { launcher.launch(Manifest.permission.CAMERA) }) {
-                Text("Allow camera")
+                UiText("Allow camera")
             }
         }
     }

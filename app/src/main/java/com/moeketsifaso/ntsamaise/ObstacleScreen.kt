@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -18,6 +17,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun ObstacleScreen(onBack: () -> Unit) {
+    val language = LocalAppLanguage.current
     val context = LocalContext.current.applicationContext
     var paused by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<DetectionFeedback?>(null) }
@@ -45,7 +45,7 @@ fun ObstacleScreen(onBack: () -> Unit) {
     var translation by remember { mutableStateOf<TranslationResult?>(null) }
 
     LaunchedEffect(prompt) {
-        translation = prompt?.let { GoogleCloudTranslator.translate(it) }
+        translation = prompt?.let { language.output(it) }
     }
     // Silence old results if inference stops producing frames, including after resume.
     LaunchedEffect(paused) {
@@ -60,12 +60,12 @@ fun ObstacleScreen(onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Detect Obstacles", style = MaterialTheme.typography.headlineMedium)
-        Text("Experimental camera alerts. Hold the phone upright, facing forward. " +
+        UiText("Detect Obstacles", style = MaterialTheme.typography.headlineMedium)
+        UiText("Experimental camera alerts. Hold the phone upright, facing forward. " +
             "Left and right refer to the camera view. Calibrated distances are approximate. " +
             "Steps, potholes and other hazards may be missed. Keep using your usual mobility aid.")
         Button(onClick = onBack, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-            Text("Back to home")
+            UiText("Back to home")
         }
         Button(onClick = {
             paused = !paused
@@ -75,39 +75,38 @@ fun ObstacleScreen(onBack: () -> Unit) {
             stale = false
             resetDistance()
         }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-            Text(if (paused) "Resume detection" else "Pause detection")
+            UiText(if (paused) "Resume detection" else "Pause detection")
         }
-        Text(when {
+        UiText(when {
             paused -> "Detection paused"
             error != null -> error!!
             stale -> "No recent camera results. Pause and resume detection to retry."
-            else -> feedback?.display ?: "Looking for possible obstacles..."
+            else -> if (language == AppLanguage.ENGLISH) feedback?.display ?: "Looking for possible obstacles..."
+                else if (prompt != null) translation?.takeIf { it.originalText == prompt }?.translatedText ?: "Translating to Sesotho..."
+                else feedback?.display ?: "Looking for possible obstacles..."
         }, style = MaterialTheme.typography.titleLarge)
-        Text(if (distanceMeters != null && !paused && !stale && error == null)
-            "Estimated distance: ${distanceText(distanceMeters!!)} m"
+        UiText(if (distanceMeters != null && !paused && !stale && error == null)
+            "${language.ui("Estimated distance")}: ${distanceText(distanceMeters!!)} m"
         else "Distance unavailable — calibrate and hold the same whole object steady.",
             style = MaterialTheme.typography.titleLarge)
-        translation?.takeIf { prompt != null && it.originalText == prompt }?.let {
-            Text(it.translatedText, style = MaterialTheme.typography.titleLarge)
-        }
-        speechError?.let { Text(it) }
-        Text("Distance calibration", style = MaterialTheme.typography.titleMedium)
-        Text("With a helper, measure from the camera to one stationary object (0.3–10 metres). " +
+        speechError?.let { UiText(it) }
+        UiText("Distance calibration", style = MaterialTheme.typography.titleMedium)
+        UiText("With a helper, measure from the camera to one stationary object (0.3–10 metres). " +
             "Show the whole object, hold steady, enter that distance and tap Calibrate. " +
             "Estimates apply only to this same object at the same angle. Do not switch objects or zoom. " +
             "Calibration clears when detection stops, the camera rotates, or the selected object class changes.")
         OutlinedTextField(
             value = knownDistance,
             onValueChange = { knownDistance = it },
-            label = { Text("Measured reference distance (metres)") },
+            label = { UiText("Measured reference distance (metres)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             singleLine = true,
             isError = knownMeters == null,
-            supportingText = { Text("Enter a measured distance from 0.3 to 10 metres.") },
+            supportingText = { UiText("Enter a measured distance from 0.3 to 10 metres.") },
             modifier = Modifier.fillMaxWidth()
         )
-        Text(calibration?.let { "Calibrated for: ${it.reference.bounds.label} at ${distanceText(it.meters)} m" }
-            ?: stableObservation?.let { "Ready to calibrate: ${it.bounds.label}" }
+        UiText(calibration?.let { "${language.ui("Calibrated for")}: ${distanceText(it.meters)} m" }
+            ?: stableObservation?.let { language.ui("Ready to calibrate") }
             ?: "Waiting for a steady, fully visible object with sufficient confidence.")
         Button(onClick = {
             val reference = stableObservation
@@ -118,11 +117,11 @@ fun ObstacleScreen(onBack: () -> Unit) {
             }
         }, enabled = knownMeters != null && stableObservation != null && !paused && !stale && error == null,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-            Text("Calibrate distance")
+            UiText("Calibrate distance")
         }
         if (calibration != null) {
             Button(onClick = { resetDistance() }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                Text("Clear calibration")
+                UiText("Clear calibration")
             }
         }
         if (!paused) {

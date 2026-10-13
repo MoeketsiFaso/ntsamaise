@@ -10,6 +10,7 @@ import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 
 enum class TranslationSource {
+    ORIGINAL,
     CLOUD,
     CACHE,
     LOCAL_DICTIONARY,
@@ -135,7 +136,7 @@ object GoogleCloudTranslator {
         }
 
         // 2. Check local offline dictionary
-        val local = matchLocalDictionary(trimmed)
+        val local = sesothoUi[trimmed] ?: matchLocalDictionary(trimmed)
         if (local != null) {
             cache[trimmed] = local
             return@withContext TranslationResult(trimmed, local, TranslationSource.LOCAL_DICTIONARY)
@@ -188,6 +189,19 @@ object GoogleCloudTranslator {
 
     private fun matchLocalDictionary(text: String): String? {
         localDictionary[text]?.let { return it }
+
+        // Compose only fully translated known labels; unknown labels use the cloud/fallback path.
+        val colourParts = text.split(" detected. ", limit = 2)
+        if (colourParts.size == 2) {
+            val objectText = localDictionary["${colourParts[0]} detected"]
+            val colourText = if (colourParts[1] == "Colour unclear") {
+                "'Mala ha o hlake"
+            } else {
+                ObjectColour.entries.firstOrNull { colourParts[1] == "Possible colour: ${it.label}" }
+                    ?.let { "'Mala e ka ba ${it.sesotho}" }
+            }
+            if (objectText != null && colourText != null) return "$objectText. $colourText"
+        }
 
         val distanceMatch = Regex("(Possible obstacle (?:on the left|ahead|on the right))\\. Estimated distance ([0-9]+\\.[0-9]) meters")
             .matchEntire(text)

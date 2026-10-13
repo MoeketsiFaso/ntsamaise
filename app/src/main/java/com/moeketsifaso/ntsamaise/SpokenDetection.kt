@@ -12,22 +12,23 @@ fun rememberSpokenDetection(
     result: String?, stabilityMillis: Long = 800,
     changedIntervalMillis: Long = 3_000, repeatIntervalMillis: Long = 8_000
 ): String? {
+    val language = LocalAppLanguage.current
     val speech = rememberSpeechOutput()
-    val gate = remember(changedIntervalMillis, repeatIntervalMillis) {
+    val gate = remember(language, changedIntervalMillis, repeatIntervalMillis) {
         AnnouncementGate(changedIntervalMillis, repeatIntervalMillis)
     }
 
     LaunchedEffect(speech.resumed) {
         if (!speech.resumed) gate.reset()
     }
-    LaunchedEffect(result, speech.ready, speech.resumed, stabilityMillis, gate) {
+    LaunchedEffect(language, result, speech.ready, speech.resumed, stabilityMillis, gate) {
         if (result == null) speech.stop()
         if (result != null && speech.ready && speech.resumed) {
             delay(stabilityMillis)
             while (true) {
                 val now = SystemClock.elapsedRealtime()
                 if (!speech.isSpeaking && gate.canAnnounce(result, now)) {
-                    val translation = GoogleCloudTranslator.translate(result)
+                    val translation = language.output(result)
                     val textToSpeak = translation.translatedText
                     if (speech.speak(textToSpeak)) gate.record(result, now) else break
                 }
