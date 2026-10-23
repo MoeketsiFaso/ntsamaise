@@ -20,10 +20,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
+
 fun HomeScreen(
     onChangeLanguage: () -> Unit,
     onScanSurroundings: () -> Unit,
@@ -110,23 +112,6 @@ fun HomeScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onIdentifyProduct,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 70.dp)
-                .semantics {
-                    contentDescription =
-                        language.ui("Identify Product")
-                }
-        ) {
-            UiText(
-                text = "Identify Product",
-                fontSize = 20.sp
-            )
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
