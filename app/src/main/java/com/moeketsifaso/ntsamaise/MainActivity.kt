@@ -1,6 +1,7 @@
 package com.moeketsifaso.ntsamaise
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -12,6 +13,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 
 class MainActivity : ComponentActivity() {
+    private var currencyCaptureAction: (() -> Unit)? = null
+
+    fun setCurrencyCaptureAction(action: (() -> Unit)?) {
+        currencyCaptureAction = action
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            currencyCaptureAction?.let { capture ->
+                if (event.action == KeyEvent.ACTION_UP) capture()
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

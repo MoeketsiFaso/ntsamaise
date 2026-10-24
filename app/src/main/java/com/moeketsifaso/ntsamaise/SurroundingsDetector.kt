@@ -31,7 +31,7 @@ internal class SurroundingsDetector(
     )
 
     override fun process(frame: ImageProxy): DetectionFeedback {
-        val bitmap = frame.toBitmap()
+        val bitmap = frame.toRgbaBitmap()
         var upright = bitmap
         try {
             if (frame.imageInfo.rotationDegrees != 0) {

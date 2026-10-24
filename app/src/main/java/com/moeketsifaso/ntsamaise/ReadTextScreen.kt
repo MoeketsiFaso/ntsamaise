@@ -24,9 +24,6 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ReadTextScreen(onBack: () -> Unit) = CapturedTextScreen(onBack, currencyMode = false)
 
-@Composable
-fun CurrencyScreen(onBack: () -> Unit) = CapturedTextScreen(onBack, currencyMode = true)
-
 /** Shared capture, cancellation and speech controls for passages and banknote text. */
 @Composable
 private fun CapturedTextScreen(onBack: () -> Unit, currencyMode: Boolean) {

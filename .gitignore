@@ -1,3 +1,7 @@
+# Local model test environment
+.venv-model-test/
+.model-wheels/
+
 # Gradle files
 .gradle/
 .kotlin/
@@ -32,3 +36,4 @@ google-services.json
 
 # Android Profiling
 *.hprof
+.venv-model-test/

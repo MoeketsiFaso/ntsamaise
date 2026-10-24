@@ -100,6 +100,18 @@ object GoogleCloudTranslator {
             "Mongolo oa chelete oa hanyetsana. Bontša chelete e le 'ngoe feela 'me u hlahlobe hape.",
         "Could not read the denomination clearly. Show the whole note, move closer and scan again." to
             "Ha rea khona ho bala boleng ba chelete hantle. Bontša chelete eohle, atametsa 'me u hlahlobe hape.",
+        "Looking for banknotes..." to "E batla chelete...",
+        "No banknote recognized" to "Ha ho chelete e lemohuoeng",
+        "10 Loti detected" to "Maloti a 10 a bonoe",
+        "20 Loti detected" to "Maloti a 20 a bonoe",
+        "50 Loti detected" to "Maloti a 50 a bonoe",
+        "100 Loti detected" to "Maloti a 100 a bonoe",
+        "200 Loti detected" to "Maloti a 200 a bonoe",
+        "10 Rand detected" to "Ranta tse 10 li bonoe",
+        "20 Rand detected" to "Ranta tse 20 li bonoe",
+        "50 Rand detected" to "Ranta tse 50 li bonoe",
+        "100 Rand detected" to "Ranta tse 100 li bonoe",
+        "200 Rand detected" to "Ranta tse 200 li bonoe",
 
         // Read text guidance
         "Point the camera at printed text, then tap Capture and read." to
@@ -215,6 +227,15 @@ object GoogleCloudTranslator {
         if (currencyMatch != null) {
             val amount = currencyMatch.groupValues[1]
             return "E ka 'na eaba ke maloti a $amount, ho latela mongolo o hatisitsoeng. Hlahloba chelete pele u sebelisa sephetho sena."
+        }
+
+        // Dynamic banknote detection with percentage
+        val banknotePercentMatch = Regex("(\\d+ (?:Loti|Rand)) detected \\((\\d+)%\\)").matchEntire(text)
+        if (banknotePercentMatch != null) {
+            val note = banknotePercentMatch.groupValues[1]
+            val percent = banknotePercentMatch.groupValues[2]
+            val base = localDictionary["$note detected"]
+            if (base != null) return "$base ($percent%)"
         }
 
         // Dynamic object detection label
