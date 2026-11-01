@@ -1,6 +1,106 @@
 # NTSAMAISE project progress
 
-Last updated: 2026-10-24
+Last updated: 2026-10-29
+
+## Gradle build configuration fix (2026-10-29)
+
+Fixed `Could not resolve all files for configuration ':app:debugAndroidTestRuntimeClasspath'. > Could not find androidx.compose.ui:ui-test-junit4:.` by adding Compose BOM platform constraints to `androidTestImplementation` and `debugImplementation` in `app/build.gradle.kts`. Verified successful project build (`app:assembleDebug`).
+
+## Currency screen crash investigation (2026-10-25)
+
+User reports Identify Money closes immediately on entry. No Android device or ADB
+logs are available in this environment, so the exact crash stack trace is unknown.
+Confirmed the `.pte` asset exists (37,883,688 bytes) and the Gradle cache contains
+ExecuTorch Android 1.1.0 sources. Hardened currency model initialization to copy the
+asset atomically, check its size, and wrap native load failures with a diagnostic
+exception. Camera processor construction now catches `Throwable` so native linkage
+errors are reported in-app instead of escaping initialization.
+
+Build verification remains blocked: cached Gradle 9.5.0 exits before project
+configuration with `Failed to load native library 'native-platform.dll'` on Windows.
+No attached device/ADB is present. Rebuild/reinstall and capture a device logcat to
+confirm the crash is resolved; ExecuTorch model load and inference remain unverified.
+
+Follow-up: User supplied `UnsatisfiedLinkError: dlopen failed: library
+"libexecutorch.so" not found`. Inspected the cached ExecuTorch 1.1.0 AAR: it
+contains `libexecutorch.so` only for `arm64-v8a` and `x86_64`. Gradle's existing
+merged-native-libs output contains both libraries, so the dependency resolves and
+the native runtime is merged for those ABIs. The reported failure most likely comes
+from an installed APK built before this dependency was included, or a device ABI
+without a matching ExecuTorch library (notably 32-bit ARM `armeabi-v7a` / 32-bit x86).
+There is no current build/install/device log available to distinguish these causes.
+Verify the phone is 64-bit and rebuild/reinstall the latest APK; build output cache
+is from before the new `.pte` and runtime dependency, so it is stale.
+
+Resolution 2026-10-25: Samsung SM-A032F reports only `armeabi-v7a`, while
+ExecuTorch 1.1.0's AAR supplies `libexecutorch.so` for `arm64-v8a` and `x86_64`
+only. Restored the TFLite currency detector and its runtime dependency so the
+existing model can run on this phone's 32-bit ABI. Removed the app ABI restriction
+and ExecuTorch dependencies; the `.pte` asset remains in the repository but is no
+longer used by the Android app. User must rebuild/reinstall. Build/device verification
+is still blocked in this environment (Gradle native-platform.dll startup failure;
+no attached device).
+
+Follow-up implementation: Restored the TFLite interpreter path in
+`YoloCurrencyDetector`, including runtime tensor metadata, float/quantized inputs,
+normalized-coordinate conversion and existing still-capture UX. Removed ExecuTorch
+and explicit ABI filters from app dependencies. Kept the user's `.pte` asset for
+possible later 64-bit builds, but the app does not load it. `git diff --check` passes;
+APK build and Galaxy A03 device test are pending.
+
+## Camera capture format fix (2026-10-25)
+
+User reported `Expected RGBA camera pixels, got pixelStride=0` when capturing a
+banknote. Identify Money's ImageCapture now explicitly requests YUV_420_888, which
+the shared converter handles. `toRgbaBitmap()` also routes multi-plane camera frames
+through YUV conversion and validates RGBA strides and buffer bounds for one-plane
+RGBA frames, accounting for a nonzero plane buffer position. CameraX 1.6.2 API was
+confirmed to provide `ImageCapture.Builder.setBufferFormat`. Build and device
+verification remain unavailable because Gradle fails during native startup and no
+phone is connected here.
+
+## Camera inference main-thread exception (2026-10-25)
+
+User reported `IllegalStateException: Not in application's main thread` when
+recognizing a captured image. Moved CameraX `PreviewView` output-transform access
+and box mapping out of the inference worker: capture processing now snapshots the
+frame `OutputTransform` before closing the image, then maps result boxes on the main
+executor. Tensor conversion and TFLite inference remain on the worker executor.
+Source inspection only; no build/device verification is available yet.
+
+Compile follow-up: `OutputTransform` has no `cropRect` property. Updated the main-
+thread box mapping to use its public transform matrix, invert source coordinates to
+normalized space, then map through CameraX `CoordinateTransform` to PreviewView.
+`git diff --check` passes; Gradle startup failure still blocks compilation.
+
+## Currency runtime migration to original YOLO checkpoint (2026-10-24)
+
+Changed Identify Money's detector implementation from TensorFlow Lite Interpreter
+to the ExecuTorch Android runtime. (Superseded 2026-10-25: restored TFLite for
+the user's 32-bit ARM Samsung device.) Input uses the current 640x640 RGB planar
+letterbox path; output decoding supports channel-major or anchor-major predictions
+and pixel xywh or xyxy boxes. The still capture, button/Volume Up trigger, overlay
+and spoken feedback flow are preserved. Added export instructions in
+`my_model/EXPORT_EXECUTORCH.md`; Gradle included ExecuTorch Android 1.1.0 and
+packaged `.pte` assets uncompressed during this interim implementation.
+
+Not runnable yet: `my_model/my_model.pt` is a PyTorch checkpoint and cannot be
+loaded by ExecuTorch directly. The required `app/src/main/assets/currency_yolo11s.pte`
+is not present. This machine has no registered system Python and the model-test
+virtualenv does not include PyTorch/Ultralytics/ExecuTorch, so export could not be
+performed. Android compilation, exported output layout, prediction parity and
+device inference have not been verified. Follow the export guide, validate against
+the original `.pt` on identical images, then build and test on-device before use.
+
+Follow-up 2026-10-24: User added `app/src/main/assets/currency_yolo11s.pte`
+(37,883,688 bytes), exported directory metadata confirms YOLO11s detect task,
+640x640 input and all expected 10 class names in matching order. Detector code,
+ExecuTorch 1.1.0 dependency, asset loading, NCHW RGB preprocessing and forward
+inference are now wired. Restored the existing TFLite assets under `assets/` after
+noticing they had been moved to `app/src/main/`, so Scan Surroundings retains its
+MediaPipe model. Build is still unverified: wrapper download is blocked by network;
+cached Gradle 9.5.0 fails at startup loading Windows `native-platform.dll`. No device
+inference or `.pte` prediction comparison has been performed yet.
 
 ## Language selection update (2026-10-04)
 

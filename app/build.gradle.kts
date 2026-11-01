@@ -56,10 +56,10 @@ android {
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    debugImplementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
-
     val cameraxVersion = "1.6.2"
-
     implementation("androidx.camera:camera-core:$cameraxVersion")
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")

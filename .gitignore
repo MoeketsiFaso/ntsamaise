@@ -37,3 +37,6 @@ google-services.json
 # Android Profiling
 *.hprof
 .venv-model-test/
+
+# Local Gradle wrapper cache
+.gradle-user/

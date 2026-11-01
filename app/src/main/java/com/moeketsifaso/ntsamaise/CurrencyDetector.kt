@@ -118,6 +118,7 @@ internal object YoloPostProcessor {
         val coordinatesNormalized = maxCoordinateMagnitude <= 2f
         val coordinateScaleX = if (coordinatesNormalized) inputWidth.toFloat() else 1f
         val coordinateScaleY = if (coordinatesNormalized) inputHeight.toFloat() else 1f
+        val xywh = maxCoordinateMagnitude <= 2f
 
         val scale = min(inputWidth / imageWidth.toFloat(), inputHeight / imageHeight.toFloat())
         val scaledW = imageWidth * scale
@@ -140,10 +141,14 @@ internal object YoloPostProcessor {
             }
 
             if (maxScore >= confidenceThreshold && bestClass in BANKNOTE_CLASSES.indices) {
-                val cx = at(0, anchor) * coordinateScaleX
-                val cy = at(1, anchor) * coordinateScaleY
-                val w = at(2, anchor) * coordinateScaleX
-                val h = at(3, anchor) * coordinateScaleY
+                val a = at(0, anchor) * coordinateScaleX
+                val b = at(1, anchor) * coordinateScaleY
+                val c = at(2, anchor) * coordinateScaleX
+                val d = at(3, anchor) * coordinateScaleY
+                val cx = if (xywh) a else (a + c) / 2f
+                val cy = if (xywh) b else (b + d) / 2f
+                val w = if (xywh) c else c - a
+                val h = if (xywh) d else d - b
 
                 val x1 = (cx - w / 2f - padX) / scale
                 val y1 = (cy - h / 2f - padY) / scale
@@ -194,39 +199,35 @@ internal object YoloPostProcessor {
 }
 
 /**
- * On-device YOLO11s currency detector for Lesotho Loti and South African Rand notes.
+ * On-device YOLO11s currency detector using the bundled TensorFlow Lite export.
  */
 internal class YoloCurrencyDetector(
     context: Context,
     modelAsset: String = "currency_yolo11s.tflite",
     private val confidenceThreshold: Float = 0.25f
 ) : CameraFrameProcessor<CurrencyFeedback> {
-
-    private val interpreter: Interpreter = Interpreter(
+    private val interpreter = Interpreter(
         loadModelFile(context, modelAsset),
         Interpreter.Options().apply { setNumThreads(4) }
     )
-
     private val inputTensor = interpreter.getInputTensor(0)
     private val outputTensor = interpreter.getOutputTensor(0)
     private val inputShape = inputTensor.shape()
     private val outputShape = outputTensor.shape()
-    private val inputBuffer = ByteBuffer.allocateDirect(inputTensor.numBytes()).order(ByteOrder.nativeOrder())
-    private val outputBuffer = ByteBuffer.allocateDirect(outputTensor.numBytes()).order(ByteOrder.nativeOrder())
     private val inputIsNhwc = inputShape.size == 4 && inputShape[3] == 3
-    private val inputHeight = if (inputIsNhwc) inputShape[1] else inputShape.getOrNull(2) ?: 0
-    private val inputWidth = if (inputIsNhwc) inputShape[2] else inputShape.getOrNull(3) ?: 0
-    private val outputChannels = outputShape.getOrNull(1)?.takeIf { it == 14 || it == 15 }
-        ?: outputShape.getOrNull(2)?.takeIf { it == 14 || it == 15 }
-        ?: 0
+    private val inputHeight = if (inputIsNhwc) inputShape[1] else inputShape.getOrElse(2) { 0 }
+    private val inputWidth = if (inputIsNhwc) inputShape[2] else inputShape.getOrElse(3) { 0 }
+    private val outputChannels = outputShape.getOrNull(1)?.takeIf { it == 14 }
+        ?: outputShape.getOrNull(2)?.takeIf { it == 14 } ?: 0
     private val outputAnchors = when {
         outputShape.size == 3 && outputShape[1] == outputChannels -> outputShape[2]
         outputShape.size == 3 && outputShape[2] == outputChannels -> outputShape[1]
         else -> 0
     }
     private val outputChannelMajor = outputShape.size == 3 && outputShape[1] == outputChannels
-    private val modelClasses = outputChannels - 4
     private val outputArray = FloatArray(outputChannels * outputAnchors)
+    private val outputBuffer = ByteBuffer.allocateDirect(outputTensor.numBytes()).order(ByteOrder.nativeOrder())
+    private val inputBuffer = ByteBuffer.allocateDirect(inputTensor.numBytes()).order(ByteOrder.nativeOrder())
     private val inputValues = FloatArray(inputWidth * inputHeight * 3)
     private val pixelArrayForInput = IntArray(inputWidth * inputHeight)
     private var previewViewForFrame: androidx.camera.view.PreviewView? = null
@@ -234,13 +235,13 @@ internal class YoloCurrencyDetector(
     init {
         require(inputShape.size == 4 && inputShape[0] == 1 && inputWidth > 0 && inputHeight > 0 &&
             (inputIsNhwc || inputShape[1] == 3)) {
-            "Unsupported currency model input tensor shape: ${inputShape.contentToString()}"
+            "Unsupported currency model input shape: ${inputShape.contentToString()}"
         }
         require(inputTensor.dataType() == DataType.FLOAT32 || inputTensor.dataType() == DataType.UINT8 || inputTensor.dataType() == DataType.INT8) {
             "Unsupported currency model input type: ${inputTensor.dataType()}"
         }
-        require(outputAnchors > 0 && outputShape[0] == 1 && modelClasses == BANKNOTE_CLASSES.size) {
-            "Unsupported currency model output tensor shape: ${outputShape.contentToString()}"
+        require(outputChannels == 14 && outputAnchors > 0 && outputShape[0] == 1) {
+            "Unsupported currency model output shape: ${outputShape.contentToString()}"
         }
         require(outputTensor.dataType() == DataType.FLOAT32 || outputTensor.dataType() == DataType.UINT8 || outputTensor.dataType() == DataType.INT8) {
             "Unsupported currency model output type: ${outputTensor.dataType()}"
@@ -300,9 +301,7 @@ internal class YoloCurrencyDetector(
                 }
                 inputBuffer.rewind()
                 outputBuffer.clear()
-
                 interpreter.run(inputBuffer, outputBuffer)
-
                 outputBuffer.rewind()
                 if (outputTensor.dataType() == DataType.FLOAT32) {
                     outputBuffer.asFloatBuffer().get(outputArray)
@@ -321,23 +320,14 @@ internal class YoloCurrencyDetector(
                     imageWidth = upright.width,
                     imageHeight = upright.height,
                     numAnchors = outputAnchors,
-                    numClasses = modelClasses,
+                    numClasses = BANKNOTE_CLASSES.size,
                     channelMajor = outputChannelMajor,
                     inputWidth = inputWidth,
                     inputHeight = inputHeight,
                     confidenceThreshold = confidenceThreshold
                 )
 
-                val feedback = YoloPostProcessor.formatFeedback(detections)
-                val preview = previewViewForFrame
-                val previewBoxes = if (preview == null) emptyList() else detections.map { detection ->
-                    mapFrameRectToPreview(
-                        RectF(detection.left * upright.width, detection.top * upright.height,
-                            detection.right * upright.width, detection.bottom * upright.height),
-                        frame, preview
-                    )
-                }
-                return feedback.copy(previewBoxes = previewBoxes)
+                return YoloPostProcessor.formatFeedback(detections)
             } finally {
                 letterbox.recycle()
             }
@@ -355,14 +345,40 @@ internal class YoloCurrencyDetector(
         previewViewForFrame = view
     }
 
+    override fun processPreviewResult(
+        result: CurrencyFeedback,
+        frameTransform: androidx.camera.view.transform.OutputTransform?,
+        previewView: androidx.camera.view.PreviewView
+    ): CurrencyFeedback {
+        val source = frameTransform ?: return result
+        val target = previewView.outputTransform ?: return result
+        val sourceToNormalized = android.graphics.Matrix().apply {
+            source.matrix.invert(this)
+        }
+        val previewBoxes = result.detections.map { detection ->
+            val rect = RectF(
+                detection.left,
+                detection.top,
+                detection.right,
+                detection.bottom
+            )
+            sourceToNormalized.mapRect(rect)
+            androidx.camera.view.transform.CoordinateTransform(source, target).mapRect(rect)
+            rect
+        }
+        return result.copy(previewBoxes = previewBoxes)
+    }
+
     companion object {
         private fun loadModelFile(context: Context, modelAsset: String): MappedByteBuffer {
             val fileDescriptor = context.assets.openFd(modelAsset)
             FileInputStream(fileDescriptor.fileDescriptor).use { inputStream ->
-                val fileChannel = inputStream.channel
-                val startOffset = fileDescriptor.startOffset
-                val declaredLength = fileDescriptor.declaredLength
-                return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+                val channel = inputStream.channel
+                return channel.map(
+                    FileChannel.MapMode.READ_ONLY,
+                    fileDescriptor.startOffset,
+                    fileDescriptor.declaredLength
+                )
             }
         }
     }
@@ -371,18 +387,25 @@ internal class YoloCurrencyDetector(
 /** CameraX RGBA_8888 conversion honoring row and pixel stride. */
 internal fun ImageProxy.toRgbaBitmap(): Bitmap {
     if (format == ImageFormat.YUV_420_888) return toYuvBitmap()
+    if (planes.size >= 3) return toYuvBitmap()
     val plane = planes.firstOrNull() ?: error("Camera returned no image plane")
     val buffer = plane.buffer.duplicate()
     val rowStride = plane.rowStride
     val pixelStride = plane.pixelStride
-    require(pixelStride >= 4) { "Expected RGBA camera pixels, got pixelStride=$pixelStride" }
+    require(pixelStride >= 4 && rowStride >= width * pixelStride) {
+        "Unsupported camera image format=$format, planes=${planes.size}, rowStride=$rowStride, pixelStride=$pixelStride"
+    }
+    val baseOffset = buffer.position()
     val bytes = ByteArray(buffer.remaining())
     buffer.get(bytes)
     val output = IntArray(width * height)
     for (y in 0 until height) {
         val row = y * rowStride
         for (x in 0 until width) {
-            val offset = row + x * pixelStride
+            val offset = baseOffset + row + x * pixelStride
+            require(offset + 3 < bytes.size) {
+                "Camera RGBA plane is shorter than its declared row/pixel stride"
+            }
             val r = bytes[offset].toInt() and 0xFF
             val g = bytes[offset + 1].toInt() and 0xFF
             val b = bytes[offset + 2].toInt() and 0xFF

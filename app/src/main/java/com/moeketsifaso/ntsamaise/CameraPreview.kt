@@ -2,6 +2,7 @@ package com.moeketsifaso.ntsamaise
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.ImageFormat
 import android.util.Log
 import android.util.Size
 import android.graphics.RectF
@@ -36,6 +37,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal interface CameraFrameProcessor<T> : AutoCloseable {
     fun process(frame: ImageProxy): T?
     fun setPreviewView(view: PreviewView) = Unit
+    fun processPreviewResult(
+        result: T,
+        frameTransform: androidx.camera.view.transform.OutputTransform?,
+        previewView: PreviewView
+    ): T? = result
 }
 
 /** Camera/permission ownership shared by object scanning and text reading. */
@@ -118,7 +124,7 @@ internal fun <T> CameraPreview(
                     }
                 }.build()
 
-            fun reportError(message: String, error: Exception) {
+            fun reportError(message: String, error: Throwable) {
                 Log.e("CameraPreview", message, error)
                 mainExecutor.execute { if (!disposed.get()) currentError(message) }
             }
@@ -136,10 +142,25 @@ internal fun <T> CameraPreview(
                     override fun onCaptureSuccess(image: ImageProxy) {
                         try {
                             val result = processor?.process(image)
+                            val resultTransform = if (result != null) runCatching {
+                                ImageProxyTransformFactory().apply {
+                                    setUsingCropRect(true)
+                                    setUsingRotationDegrees(true)
+                                }.getOutputTransform(image)
+                            }.getOrNull() else null
                             if (result != null) mainExecutor.execute {
-                                if (!disposed.get()) currentResult(result)
+                                if (!disposed.get()) {
+                                    try {
+                                        val displayResult = processor?.processPreviewResult(
+                                            result, resultTransform, previewView
+                                        )
+                                        currentResult(displayResult ?: result)
+                                    } catch (error: Throwable) {
+                                        reportError("Could not display recognition results.", error)
+                                    }
+                                }
                             }
-                        } catch (error: Exception) {
+                        } catch (error: Throwable) {
                             reportError("Could not recognize this image. Try again with the camera steady.", error)
                         } finally {
                             image.close()
@@ -158,7 +179,7 @@ internal fun <T> CameraPreview(
                         }
                     }
                     })
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
                     captureInProgress.set(false)
                     currentCaptureState(false)
                     reportError("Could not capture a photo. Try again.", error)
@@ -176,7 +197,7 @@ internal fun <T> CameraPreview(
                                 }
                             }
                         }
-                    } catch (error: Exception) {
+                    } catch (error: Throwable) {
                         reportError("Could not recognize this image. Try again with the camera steady.", error)
                     } finally {
                         frame.close()
@@ -196,7 +217,7 @@ internal fun <T> CameraPreview(
                                 currentReady(cameraBound)
                             }
                         }
-                    } catch (error: Exception) {
+                    } catch (error: Throwable) {
                         reportError("Recognition unavailable. Reopen this screen to retry.", error)
                     }
                 }
@@ -208,6 +229,7 @@ internal fun <T> CameraPreview(
                         provider = future.get()
                         if (currentCaptureMode) {
                             val capture = ImageCapture.Builder()
+                                .setBufferFormat(ImageFormat.YUV_420_888)
                                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                                 .build()
                             imageCapture = capture
@@ -219,7 +241,7 @@ internal fun <T> CameraPreview(
                         if (processorReady && currentCaptureMode) currentCaptureAction(::captureStill)
                         if (processorReady && !currentCaptureMode) installAnalyzer()
                         currentReady(processorReady)
-                    } catch (error: Exception) {
+                    } catch (error: Throwable) {
                         analysis.clearAnalyzer()
                         reportError("Camera unavailable. Reopen this screen to retry.", error)
                     }

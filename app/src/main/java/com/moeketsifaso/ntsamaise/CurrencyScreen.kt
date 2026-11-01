@@ -95,7 +95,9 @@ fun CurrencyScreen(onBack: () -> Unit) {
                 .height(300.dp)
         ) {
             CameraPreview(
-                createProcessor = { YoloCurrencyDetector(context) },
+                createProcessor = {
+                    YoloCurrencyDetector(context)
+                },
                 captureMode = true,
                 captureEnabled = !isCapturing,
                 onCaptureState = { capturing ->
